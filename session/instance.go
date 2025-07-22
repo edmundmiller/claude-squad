@@ -3,7 +3,7 @@ package session
 import (
 	"claude-squad/log"
 	"claude-squad/session/git"
-	"claude-squad/session/tmux"
+	"claude-squad/session/zellij"
 	"path/filepath"
 
 	"fmt"
@@ -58,8 +58,8 @@ type Instance struct {
 	// The below fields are initialized upon calling Start().
 
 	started bool
-	// tmuxSession is the tmux session for the instance.
-	tmuxSession *tmux.TmuxSession
+	// zellijSession is the zellij session for the instance.
+	zellijSession *zellij.ZellijSession
 	// gitWorktree is the git worktree for the instance.
 	gitWorktree *git.GitWorktree
 }
@@ -130,7 +130,7 @@ func FromInstanceData(data InstanceData) (*Instance, error) {
 
 	if instance.Paused() {
 		instance.started = true
-		instance.tmuxSession = tmux.NewTmuxSession(instance.Title, instance.Program)
+		instance.zellijSession = zellij.NewZellijSession(instance.Title, instance.Program)
 	} else {
 		if err := instance.Start(false); err != nil {
 			return nil, err
@@ -191,15 +191,15 @@ func (i *Instance) Start(firstTimeSetup bool) error {
 		return fmt.Errorf("instance title cannot be empty")
 	}
 
-	var tmuxSession *tmux.TmuxSession
-	if i.tmuxSession != nil {
-		// Use existing tmux session (useful for testing)
-		tmuxSession = i.tmuxSession
+	var zellijSession *zellij.ZellijSession
+	if i.zellijSession != nil {
+		// Use existing zellij session (useful for testing)
+		zellijSession = i.zellijSession
 	} else {
-		// Create new tmux session
-		tmuxSession = tmux.NewTmuxSession(i.Title, i.Program)
+		// Create new zellij session
+		zellijSession = zellij.NewZellijSession(i.Title, i.Program)
 	}
-	i.tmuxSession = tmuxSession
+	i.zellijSession = zellijSession
 
 	if firstTimeSetup {
 		gitWorktree, branchName, err := git.NewGitWorktree(i.Path, i.Title)
@@ -224,7 +224,7 @@ func (i *Instance) Start(firstTimeSetup bool) error {
 
 	if !firstTimeSetup {
 		// Reuse existing session
-		if err := tmuxSession.Restore(); err != nil {
+		if err := zellijSession.Restore(); err != nil {
 			setupErr = fmt.Errorf("failed to restore existing session: %w", err)
 			return setupErr
 		}
@@ -236,8 +236,8 @@ func (i *Instance) Start(firstTimeSetup bool) error {
 		}
 
 		// Create new session
-		if err := i.tmuxSession.Start(i.gitWorktree.GetWorktreePath()); err != nil {
-			// Cleanup git worktree if tmux session creation fails
+		if err := i.zellijSession.Start(i.gitWorktree.GetWorktreePath()); err != nil {
+			// Cleanup git worktree if zellij session creation fails
 			if cleanupErr := i.gitWorktree.Cleanup(); cleanupErr != nil {
 				err = fmt.Errorf("%v (cleanup error: %v)", err, cleanupErr)
 			}
@@ -261,10 +261,10 @@ func (i *Instance) Kill() error {
 	var errs []error
 
 	// Always try to cleanup both resources, even if one fails
-	// Clean up tmux session first since it's using the git worktree
-	if i.tmuxSession != nil {
-		if err := i.tmuxSession.Close(); err != nil {
-			errs = append(errs, fmt.Errorf("failed to close tmux session: %w", err))
+	// Clean up zellij session first since it's using the git worktree
+	if i.zellijSession != nil {
+		if err := i.zellijSession.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("failed to close zellij session: %w", err))
 		}
 	}
 
@@ -298,22 +298,22 @@ func (i *Instance) Preview() (string, error) {
 	if !i.started || i.Status == Paused {
 		return "", nil
 	}
-	return i.tmuxSession.CapturePaneContent()
+	return i.zellijSession.CapturePaneContent()
 }
 
 func (i *Instance) HasUpdated() (updated bool, hasPrompt bool) {
 	if !i.started {
 		return false, false
 	}
-	return i.tmuxSession.HasUpdated()
+	return i.zellijSession.HasUpdated()
 }
 
-// TapEnter sends an enter key press to the tmux session if AutoYes is enabled.
+// TapEnter sends an enter key press to the zellij session if AutoYes is enabled.
 func (i *Instance) TapEnter() {
 	if !i.started || !i.AutoYes {
 		return
 	}
-	if err := i.tmuxSession.TapEnter(); err != nil {
+	if err := i.zellijSession.TapEnter(); err != nil {
 		log.ErrorLog.Printf("error tapping enter: %v", err)
 	}
 }
@@ -322,7 +322,7 @@ func (i *Instance) Attach() (chan struct{}, error) {
 	if !i.started {
 		return nil, fmt.Errorf("cannot attach instance that has not been started")
 	}
-	return i.tmuxSession.Attach()
+	return i.zellijSession.Attach()
 }
 
 func (i *Instance) SetPreviewSize(width, height int) error {
@@ -330,7 +330,7 @@ func (i *Instance) SetPreviewSize(width, height int) error {
 		return fmt.Errorf("cannot set preview size for instance that has not been started or " +
 			"is paused")
 	}
-	return i.tmuxSession.SetDetachedSize(width, height)
+	return i.zellijSession.SetDetachedSize(width, height)
 }
 
 // GetGitWorktree returns the git worktree for the instance
@@ -346,7 +346,7 @@ func (i *Instance) Started() bool {
 }
 
 // SetTitle sets the title of the instance. Returns an error if the instance has started.
-// We cant change the title once it's been used for a tmux session etc.
+// We cant change the title once it's been used for a zellij session etc.
 func (i *Instance) SetTitle(title string) error {
 	if i.started {
 		return fmt.Errorf("cannot change title of a started instance")
@@ -359,12 +359,12 @@ func (i *Instance) Paused() bool {
 	return i.Status == Paused
 }
 
-// TmuxAlive returns true if the tmux session is alive. This is a sanity check before attaching.
+// TmuxAlive returns true if the zellij session is alive. This is a sanity check before attaching.
 func (i *Instance) TmuxAlive() bool {
-	return i.tmuxSession.DoesSessionExist()
+	return i.zellijSession.DoesSessionExist()
 }
 
-// Pause stops the tmux session and removes the worktree, preserving the branch
+// Pause stops the zellij session and removes the worktree, preserving the branch
 func (i *Instance) Pause() error {
 	if !i.started {
 		return fmt.Errorf("cannot pause instance that has not been started")
@@ -390,9 +390,9 @@ func (i *Instance) Pause() error {
 		}
 	}
 
-	// Detach from tmux session instead of closing to preserve session output
-	if err := i.tmuxSession.DetachSafely(); err != nil {
-		errs = append(errs, fmt.Errorf("failed to detach tmux session: %w", err))
+	// Detach from zellij session instead of closing to preserve session output
+	if err := i.zellijSession.DetachSafely(); err != nil {
+		errs = append(errs, fmt.Errorf("failed to detach zellij session: %w", err))
 		log.ErrorLog.Print(err)
 		// Continue with pause process even if detach fails
 	}
@@ -424,7 +424,7 @@ func (i *Instance) Pause() error {
 	return nil
 }
 
-// Resume recreates the worktree and restarts the tmux session
+// Resume recreates the worktree and restarts the zellij session
 func (i *Instance) Resume() error {
 	if !i.started {
 		return fmt.Errorf("cannot resume instance that has not been started")
@@ -447,15 +447,15 @@ func (i *Instance) Resume() error {
 		return fmt.Errorf("failed to setup git worktree: %w", err)
 	}
 
-	// Check if tmux session still exists from pause, otherwise create new one
-	if i.tmuxSession.DoesSessionExist() {
+	// Check if zellij session still exists from pause, otherwise create new one
+	if i.zellijSession.DoesSessionExist() {
 		// Session exists, just restore PTY connection to it
-		if err := i.tmuxSession.Restore(); err != nil {
+		if err := i.zellijSession.Restore(); err != nil {
 			log.ErrorLog.Print(err)
 			// If restore fails, fall back to creating new session
-			if err := i.tmuxSession.Start(i.gitWorktree.GetWorktreePath()); err != nil {
+			if err := i.zellijSession.Start(i.gitWorktree.GetWorktreePath()); err != nil {
 				log.ErrorLog.Print(err)
-				// Cleanup git worktree if tmux session creation fails
+				// Cleanup git worktree if zellij session creation fails
 				if cleanupErr := i.gitWorktree.Cleanup(); cleanupErr != nil {
 					err = fmt.Errorf("%v (cleanup error: %v)", err, cleanupErr)
 					log.ErrorLog.Print(err)
@@ -464,10 +464,10 @@ func (i *Instance) Resume() error {
 			}
 		}
 	} else {
-		// Create new tmux session
-		if err := i.tmuxSession.Start(i.gitWorktree.GetWorktreePath()); err != nil {
+		// Create new zellij session
+		if err := i.zellijSession.Start(i.gitWorktree.GetWorktreePath()); err != nil {
 			log.ErrorLog.Print(err)
-			// Cleanup git worktree if tmux session creation fails
+			// Cleanup git worktree if zellij session creation fails
 			if cleanupErr := i.gitWorktree.Cleanup(); cleanupErr != nil {
 				err = fmt.Errorf("%v (cleanup error: %v)", err, cleanupErr)
 				log.ErrorLog.Print(err)
@@ -511,44 +511,44 @@ func (i *Instance) GetDiffStats() *git.DiffStats {
 	return i.diffStats
 }
 
-// SendPrompt sends a prompt to the tmux session
+// SendPrompt sends a prompt to the zellij session
 func (i *Instance) SendPrompt(prompt string) error {
 	if !i.started {
 		return fmt.Errorf("instance not started")
 	}
-	if i.tmuxSession == nil {
-		return fmt.Errorf("tmux session not initialized")
+	if i.zellijSession == nil {
+		return fmt.Errorf("zellij session not initialized")
 	}
-	if err := i.tmuxSession.SendKeys(prompt); err != nil {
-		return fmt.Errorf("error sending keys to tmux session: %w", err)
+	if err := i.zellijSession.SendKeys(prompt); err != nil {
+		return fmt.Errorf("error sending keys to zellij session: %w", err)
 	}
 
 	// Brief pause to prevent carriage return from being interpreted as newline
 	time.Sleep(100 * time.Millisecond)
-	if err := i.tmuxSession.TapEnter(); err != nil {
+	if err := i.zellijSession.TapEnter(); err != nil {
 		return fmt.Errorf("error tapping enter: %w", err)
 	}
 
 	return nil
 }
 
-// PreviewFullHistory captures the entire tmux pane output including full scrollback history
+// PreviewFullHistory captures the entire zellij pane output including full scrollback history
 func (i *Instance) PreviewFullHistory() (string, error) {
 	if !i.started || i.Status == Paused {
 		return "", nil
 	}
-	return i.tmuxSession.CapturePaneContentWithOptions("-", "-")
+	return i.zellijSession.CapturePaneContentWithOptions("-", "-")
 }
 
-// SetTmuxSession sets the tmux session for testing purposes
-func (i *Instance) SetTmuxSession(session *tmux.TmuxSession) {
-	i.tmuxSession = session
+// SetZellijSession sets the zellij session for testing purposes
+func (i *Instance) SetZellijSession(session *zellij.ZellijSession) {
+	i.zellijSession = session
 }
 
-// SendKeys sends keys to the tmux session
+// SendKeys sends keys to the zellij session
 func (i *Instance) SendKeys(keys string) error {
 	if !i.started || i.Status == Paused {
 		return fmt.Errorf("cannot send keys to instance that has not been started or is paused")
 	}
-	return i.tmuxSession.SendKeys(keys)
+	return i.zellijSession.SendKeys(keys)
 }

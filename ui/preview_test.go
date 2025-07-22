@@ -4,7 +4,7 @@ import (
 	"claude-squad/cmd/cmd_test"
 	"claude-squad/log"
 	"claude-squad/session"
-	"claude-squad/session/tmux"
+	"claude-squad/session/zellij"
 	"fmt"
 	"os"
 	"os/exec"
@@ -41,8 +41,8 @@ func setupTestEnvironment(t *testing.T, cmdExec cmd_test.MockCmdExec) *testSetup
 	random := time.Now().UnixNano() % 10000000
 	sessionName := fmt.Sprintf("test-preview-%s-%d-%d", t.Name(), time.Now().UnixNano(), random)
 
-	// Clean up any existing tmux session
-	cleanupCmd := exec.Command("tmux", "kill-session", "-t", "claudesquad_"+sessionName)
+	// Clean up any existing zellij session
+	cleanupCmd := exec.Command("zellij", "kill-session", "-t", "claudesquad_"+sessionName)
 	_ = cleanupCmd.Run() // Ignore errors if session doesn't exist
 
 	// Create instance
@@ -60,11 +60,11 @@ func setupTestEnvironment(t *testing.T, cmdExec cmd_test.MockCmdExec) *testSetup
 		cmdExec: cmdExec,
 	}
 
-	// Set up tmux session with mocks
-	tmuxSession := tmux.NewTmuxSessionWithDeps(sessionName, "bash", ptyFactory, cmdExec)
-	instance.SetTmuxSession(tmuxSession)
+	// Set up zellij session with mocks
+	zellijSession := zellij.NewZellijSessionWithDeps(sessionName, "bash", ptyFactory, cmdExec)
+	instance.SetZellijSession(zellijSession)
 
-	// Start the tmux session
+	// Start the zellij session
 	err = instance.Start(true)
 	require.NoError(t, err)
 
@@ -144,7 +144,7 @@ func TestPreviewScrolling(t *testing.T) {
 			cmdStr := cmd.String()
 			executedCommands = append(executedCommands, cmdStr)
 
-			// Handle tmux session creation and existence checking
+			// Handle zellij session creation and existence checking
 			if strings.Contains(cmdStr, "has-session") {
 				if sessionCreated {
 					return nil // Session exists
@@ -285,7 +285,7 @@ func TestPreviewScrolling(t *testing.T) {
 	require.False(t, previewPane.isScrolling, "Should not be in scrolling mode after reset")
 }
 
-// MockPtyFactory for testing tmux sessions
+// MockPtyFactory for testing zellij sessions
 type MockPtyFactory struct {
 	t       *testing.T
 	cmdExec cmd_test.MockCmdExec
@@ -324,7 +324,7 @@ func TestPreviewContentWithoutScrolling(t *testing.T) {
 		RunFunc: func(cmd *exec.Cmd) error {
 			cmdStr := cmd.String()
 
-			// Handle tmux session creation and existence checking
+			// Handle zellij session creation and existence checking
 			if strings.Contains(cmdStr, "has-session") {
 				if sessionCreated {
 					return nil // Session exists

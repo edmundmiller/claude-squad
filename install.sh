@@ -176,16 +176,16 @@ check_command_exists() {
 check_and_install_dependencies() {
     echo "Checking for required dependencies..."
     
-    # Check for tmux
-    if ! command -v tmux &> /dev/null; then
-        echo "tmux is not installed. Installing tmux..."
+    # Check for zellij
+    if ! command -v zellij &> /dev/null; then
+        echo "zellij is not installed. Installing zellij..."
         
         if [[ "$PLATFORM" == "darwin" ]]; then
             # macOS
             if command -v brew &> /dev/null; then
-                ensure brew install tmux
+                ensure brew install zellij
             else
-                echo "Homebrew is not installed. Please install Homebrew first to install tmux."
+                echo "Homebrew is not installed. Please install Homebrew first to install zellij."
                 echo "Visit https://brew.sh for installation instructions."
                 exit 1
             fi
@@ -193,25 +193,25 @@ check_and_install_dependencies() {
             # Linux
             if command -v apt-get &> /dev/null; then
                 ensure sudo apt-get update
-                ensure sudo apt-get install -y tmux
+                ensure sudo apt-get install -y zellij
             elif command -v dnf &> /dev/null; then
-                ensure sudo dnf install -y tmux
+                ensure sudo dnf install -y zellij
             elif command -v yum &> /dev/null; then
-                ensure sudo yum install -y tmux
+                ensure sudo yum install -y zellij
             elif command -v pacman &> /dev/null; then
-                ensure sudo pacman -S --noconfirm tmux
+                ensure sudo pacman -S --noconfirm zellij
             else
-                echo "Could not determine package manager. Please install tmux manually."
+                echo "Could not determine package manager. Please install zellij manually."
                 exit 1
             fi
         elif [[ "$PLATFORM" == "windows" ]]; then
-            echo "For Windows, please install tmux via WSL or another method."
+            echo "For Windows, please install zellij via WSL or another method."
             exit 1
         fi
         
-        echo "tmux installed successfully."
+        echo "zellij installed successfully."
     else
-        echo "tmux is already installed."
+        echo "zellij is already installed."
     fi
     
     # Check for GitHub CLI (gh)

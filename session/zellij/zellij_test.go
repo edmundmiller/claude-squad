@@ -1,4 +1,4 @@
-package tmux
+package zellij
 
 import (
 	cmd2 "claude-squad/cmd"
@@ -42,14 +42,14 @@ func NewMockPtyFactory(t *testing.T) *MockPtyFactory {
 }
 
 func TestSanitizeName(t *testing.T) {
-	session := NewTmuxSession("asdf", "program")
-	require.Equal(t, TmuxPrefix+"asdf", session.sanitizedName)
+	session := NewZellijSession("asdf", "program")
+	require.Equal(t, ZellijPrefix+"asdf", session.sanitizedName)
 
-	session = NewTmuxSession("a sd f . . asdf", "program")
-	require.Equal(t, TmuxPrefix+"asdf__asdf", session.sanitizedName)
+	session = NewZellijSession("a sd f . . asdf", "program")
+	require.Equal(t, ZellijPrefix+"asdf__asdf", session.sanitizedName)
 }
 
-func TestStartTmuxSession(t *testing.T) {
+func TestStartZellijSession(t *testing.T) {
 	ptyFactory := NewMockPtyFactory(t)
 
 	created := false
@@ -67,14 +67,14 @@ func TestStartTmuxSession(t *testing.T) {
 	}
 
 	workdir := t.TempDir()
-	session := newTmuxSession("test-session", "claude", ptyFactory, cmdExec)
+	session := newZellijSession("test-session", "claude", ptyFactory, cmdExec)
 
 	err := session.Start(workdir)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(ptyFactory.cmds))
-	require.Equal(t, fmt.Sprintf("tmux new-session -d -s claudesquad_test-session -c %s claude", workdir),
+	require.Equal(t, fmt.Sprintf("zellij new-session -d -s claudesquad_test-session -c %s claude", workdir),
 		cmd2.ToString(ptyFactory.cmds[0]))
-	require.Equal(t, "tmux attach-session -t claudesquad_test-session",
+	require.Equal(t, "zellij attach-session -t claudesquad_test-session",
 		cmd2.ToString(ptyFactory.cmds[1]))
 
 	require.Equal(t, 2, len(ptyFactory.files))

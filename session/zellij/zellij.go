@@ -1,4 +1,4 @@
-package tmux
+package zellij
 
 import (
 	"bytes"
@@ -24,25 +24,25 @@ const ProgramClaude = "claude"
 const ProgramAider = "aider"
 const ProgramGemini = "gemini"
 
-// TmuxSession represents a managed tmux session
-type TmuxSession struct {
-	// Initialized by NewTmuxSession
+// ZellijSession represents a managed zellij session
+type ZellijSession struct {
+	// Initialized by NewZellijSession
 	//
-	// The name of the tmux session and the sanitized name used for tmux commands.
+	// The name of the zellij session and the sanitized name used for zellij commands.
 	sanitizedName string
 	program       string
-	// ptyFactory is used to create a PTY for the tmux session.
+	// ptyFactory is used to create a PTY for the zellij session.
 	ptyFactory PtyFactory
-	// cmdExec is used to execute commands in the tmux session.
+	// cmdExec is used to execute commands in the zellij session.
 	cmdExec cmd.Executor
 
 	// Initialized by Start or Restore
 	//
-	// ptmx is a PTY is running the tmux attach command. This can be resized to change the
-	// stdout dimensions of the tmux pane. On detach, we close it and set a new one.
+	// ptmx is a PTY is running the zellij attach command. This can be resized to change the
+	// stdout dimensions of the zellij pane. On detach, we close it and set a new one.
 	// This should never be nil.
 	ptmx *os.File
-	// monitor monitors the tmux pane content and sends signals to the UI when it's status changes
+	// monitor monitors the zellij pane content and sends signals to the UI when it's status changes
 	monitor *statusMonitor
 
 	// Initialized by Attach
@@ -57,56 +57,56 @@ type TmuxSession struct {
 	wg     *sync.WaitGroup
 }
 
-const TmuxPrefix = "claudesquad_"
+const ZellijPrefix = "claudesquad_"
 
 var whiteSpaceRegex = regexp.MustCompile(`\s+`)
 
-func toClaudeSquadTmuxName(str string) string {
+func toClaudeSquadZellijName(str string) string {
 	str = whiteSpaceRegex.ReplaceAllString(str, "")
-	str = strings.ReplaceAll(str, ".", "_") // tmux replaces all . with _
-	return fmt.Sprintf("%s%s", TmuxPrefix, str)
+	str = strings.ReplaceAll(str, ".", "_") // zellij replaces all . with _
+	return fmt.Sprintf("%s%s", ZellijPrefix, str)
 }
 
-// NewTmuxSession creates a new TmuxSession with the given name and program.
-func NewTmuxSession(name string, program string) *TmuxSession {
-	return newTmuxSession(name, program, MakePtyFactory(), cmd.MakeExecutor())
+// NewZellijSession creates a new ZellijSession with the given name and program.
+func NewZellijSession(name string, program string) *ZellijSession {
+	return newZellijSession(name, program, MakePtyFactory(), cmd.MakeExecutor())
 }
 
-// NewTmuxSessionWithDeps creates a new TmuxSession with provided dependencies for testing.
-func NewTmuxSessionWithDeps(name string, program string, ptyFactory PtyFactory, cmdExec cmd.Executor) *TmuxSession {
-	return newTmuxSession(name, program, ptyFactory, cmdExec)
+// NewZellijSessionWithDeps creates a new ZellijSession with provided dependencies for testing.
+func NewZellijSessionWithDeps(name string, program string, ptyFactory PtyFactory, cmdExec cmd.Executor) *ZellijSession {
+	return newZellijSession(name, program, ptyFactory, cmdExec)
 }
 
-func newTmuxSession(name string, program string, ptyFactory PtyFactory, cmdExec cmd.Executor) *TmuxSession {
-	return &TmuxSession{
-		sanitizedName: toClaudeSquadTmuxName(name),
+func newZellijSession(name string, program string, ptyFactory PtyFactory, cmdExec cmd.Executor) *ZellijSession {
+	return &ZellijSession{
+		sanitizedName: toClaudeSquadZellijName(name),
 		program:       program,
 		ptyFactory:    ptyFactory,
 		cmdExec:       cmdExec,
 	}
 }
 
-// Start creates and starts a new tmux session, then attaches to it. Program is the command to run in
+// Start creates and starts a new zellij session, then attaches to it. Program is the command to run in
 // the session (ex. claude). workdir is the git worktree directory.
-func (t *TmuxSession) Start(workDir string) error {
+func (t *ZellijSession) Start(workDir string) error {
 	// Check if the session already exists
 	if t.DoesSessionExist() {
-		return fmt.Errorf("tmux session already exists: %s", t.sanitizedName)
+		return fmt.Errorf("zellij session already exists: %s", t.sanitizedName)
 	}
 
-	// Create a new detached tmux session and start claude in it
-	cmd := exec.Command("tmux", "new-session", "-d", "-s", t.sanitizedName, "-c", workDir, t.program)
+	// Create a new detached zellij session and start claude in it
+	cmd := exec.Command("zellij", "new-session", "-d", "-s", t.sanitizedName, "-c", workDir, t.program)
 
 	ptmx, err := t.ptyFactory.Start(cmd)
 	if err != nil {
 		// Cleanup any partially created session if any exists.
 		if t.DoesSessionExist() {
-			cleanupCmd := exec.Command("tmux", "kill-session", "-t", t.sanitizedName)
+			cleanupCmd := exec.Command("zellij", "kill-session", "-t", t.sanitizedName)
 			if cleanupErr := t.cmdExec.Run(cleanupCmd); cleanupErr != nil {
 				err = fmt.Errorf("%v (cleanup error: %v)", err, cleanupErr)
 			}
 		}
-		return fmt.Errorf("error starting tmux session: %w", err)
+		return fmt.Errorf("error starting zellij session: %w", err)
 	}
 
 	// We need to close the ptmx, but we shouldn't close it before the command above finishes.
@@ -119,7 +119,7 @@ func (t *TmuxSession) Start(workDir string) error {
 			if cleanupErr := t.Close(); cleanupErr != nil {
 				err = fmt.Errorf("%v (cleanup error: %v)", err, cleanupErr)
 			}
-			return fmt.Errorf("timed out waiting for tmux session %s: %v", t.sanitizedName, err)
+			return fmt.Errorf("timed out waiting for zellij session %s: %v", t.sanitizedName, err)
 		default:
 			time.Sleep(time.Millisecond * 10)
 		}
@@ -127,7 +127,7 @@ func (t *TmuxSession) Start(workDir string) error {
 	ptmx.Close()
 
 	// Set history limit to enable scrollback (default is 2000, we'll use 10000 for more history)
-	historyCmd := exec.Command("tmux", "set-option", "-t", t.sanitizedName, "history-limit", "10000")
+	historyCmd := exec.Command("zellij", "set-option", "-t", t.sanitizedName, "history-limit", "10000")
 	if err := t.cmdExec.Run(historyCmd); err != nil {
 		log.InfoLog.Printf("Warning: failed to set history-limit for session %s: %v", t.sanitizedName, err)
 	}
@@ -137,7 +137,7 @@ func (t *TmuxSession) Start(workDir string) error {
 		if cleanupErr := t.Close(); cleanupErr != nil {
 			err = fmt.Errorf("%v (cleanup error: %v)", err, cleanupErr)
 		}
-		return fmt.Errorf("error restoring tmux session: %w", err)
+		return fmt.Errorf("error restoring zellij session: %w", err)
 	}
 
 	if t.program == ProgramClaude || strings.HasPrefix(t.program, ProgramAider) || strings.HasPrefix(t.program, ProgramGemini) {
@@ -168,8 +168,8 @@ func (t *TmuxSession) Start(workDir string) error {
 }
 
 // Restore attaches to an existing session and restores the window size
-func (t *TmuxSession) Restore() error {
-	ptmx, err := t.ptyFactory.Start(exec.Command("tmux", "attach-session", "-t", t.sanitizedName))
+func (t *ZellijSession) Restore() error {
+	ptmx, err := t.ptyFactory.Start(exec.Command("zellij", "attach-session", "-t", t.sanitizedName))
 	if err != nil {
 		return fmt.Errorf("error opening PTY: %w", err)
 	}
@@ -195,8 +195,8 @@ func (m *statusMonitor) hash(s string) []byte {
 	return h.Sum(nil)
 }
 
-// TapEnter sends an enter keystroke to the tmux pane.
-func (t *TmuxSession) TapEnter() error {
+// TapEnter sends an enter keystroke to the zellij pane.
+func (t *ZellijSession) TapEnter() error {
 	_, err := t.ptmx.Write([]byte{0x0D})
 	if err != nil {
 		return fmt.Errorf("error sending enter keystroke to PTY: %w", err)
@@ -204,8 +204,8 @@ func (t *TmuxSession) TapEnter() error {
 	return nil
 }
 
-// TapDAndEnter sends 'D' followed by an enter keystroke to the tmux pane.
-func (t *TmuxSession) TapDAndEnter() error {
+// TapDAndEnter sends 'D' followed by an enter keystroke to the zellij pane.
+func (t *ZellijSession) TapDAndEnter() error {
 	_, err := t.ptmx.Write([]byte{0x44, 0x0D})
 	if err != nil {
 		return fmt.Errorf("error sending enter keystroke to PTY: %w", err)
@@ -213,14 +213,14 @@ func (t *TmuxSession) TapDAndEnter() error {
 	return nil
 }
 
-func (t *TmuxSession) SendKeys(keys string) error {
+func (t *ZellijSession) SendKeys(keys string) error {
 	_, err := t.ptmx.Write([]byte(keys))
 	return err
 }
 
-// HasUpdated checks if the tmux pane content has changed since the last tick. It also returns true if
-// the tmux pane has a prompt for aider or claude code.
-func (t *TmuxSession) HasUpdated() (updated bool, hasPrompt bool) {
+// HasUpdated checks if the zellij pane content has changed since the last tick. It also returns true if
+// the zellij pane has a prompt for aider or claude code.
+func (t *ZellijSession) HasUpdated() (updated bool, hasPrompt bool) {
 	content, err := t.CapturePaneContent()
 	if err != nil {
 		log.ErrorLog.Printf("error capturing pane content in status monitor: %v", err)
@@ -243,7 +243,7 @@ func (t *TmuxSession) HasUpdated() (updated bool, hasPrompt bool) {
 	return false, hasPrompt
 }
 
-func (t *TmuxSession) Attach() (chan struct{}, error) {
+func (t *ZellijSession) Attach() (chan struct{}, error) {
 	t.attachCh = make(chan struct{})
 
 	t.wg = &sync.WaitGroup{}
@@ -267,7 +267,7 @@ func (t *TmuxSession) Attach() (chan struct{}, error) {
 		default:
 			// If context is not done, it was likely an abnormal termination (Ctrl-D)
 			// Print warning message
-			fmt.Fprintf(os.Stderr, "\n\033[31mError: Session terminated without detaching. Use Ctrl-Q to properly detach from tmux sessions.\033[0m\n")
+			fmt.Fprintf(os.Stderr, "\n\033[31mError: Session terminated without detaching. Use Ctrl-Q to properly detach from zellij sessions.\033[0m\n")
 		}
 	}()
 
@@ -290,7 +290,7 @@ func (t *TmuxSession) Attach() (chan struct{}, error) {
 				continue
 			}
 
-			// Nuke the first bytes of stdin, up to 64, to prevent tmux from reading it.
+			// Nuke the first bytes of stdin, up to 64, to prevent zellij from reading it.
 			// When we attach, there tends to be terminal control sequences like ?[?62c0;95;0c or
 			// ]10;rgb:f8f8f8. The control sequences depend on the terminal (warp vs iterm). We should use regex ideally
 			// but this works well for now. Log this for debugging.
@@ -311,7 +311,7 @@ func (t *TmuxSession) Attach() (chan struct{}, error) {
 				return
 			}
 
-			// Forward other input to tmux
+			// Forward other input to zellij
 			_, _ = t.ptmx.Write(buf[:nr])
 		}
 	}()
@@ -320,8 +320,8 @@ func (t *TmuxSession) Attach() (chan struct{}, error) {
 	return t.attachCh, nil
 }
 
-// DetachSafely disconnects from the current tmux session without panicking
-func (t *TmuxSession) DetachSafely() error {
+// DetachSafely disconnects from the current zellij session without panicking
+func (t *ZellijSession) DetachSafely() error {
 	// Only detach if we're actually attached
 	if t.attachCh == nil {
 		return nil // Already detached
@@ -361,9 +361,9 @@ func (t *TmuxSession) DetachSafely() error {
 	return nil
 }
 
-// Detach disconnects from the current tmux session. It panics if detaching fails. At the moment, there's no
+// Detach disconnects from the current zellij session. It panics if detaching fails. At the moment, there's no
 // way to recover from a failed detach.
-func (t *TmuxSession) Detach() {
+func (t *ZellijSession) Detach() {
 	// TODO: control flow is a bit messy here. If there's an error,
 	// I'm not sure if we get into a bad state. Needs testing.
 	defer func() {
@@ -386,7 +386,7 @@ func (t *TmuxSession) Detach() {
 	// Attach goroutines should die on EOF due to the ptmx closing. Call
 	// t.Restore to set a new t.ptmx.
 	if err = t.Restore(); err != nil {
-		// This is a fatal error. Our invariant that a started TmuxSession always has a valid ptmx is violated.
+		// This is a fatal error. Our invariant that a started ZellijSession always has a valid ptmx is violated.
 		msg := fmt.Sprintf("error closing attach pty session: %v", err)
 		log.ErrorLog.Println(msg)
 		panic(msg)
@@ -397,8 +397,8 @@ func (t *TmuxSession) Detach() {
 	t.wg.Wait()
 }
 
-// Close terminates the tmux session and cleans up resources
-func (t *TmuxSession) Close() error {
+// Close terminates the zellij session and cleans up resources
+func (t *ZellijSession) Close() error {
 	var errs []error
 
 	if t.ptmx != nil {
@@ -408,9 +408,9 @@ func (t *TmuxSession) Close() error {
 		t.ptmx = nil
 	}
 
-	cmd := exec.Command("tmux", "kill-session", "-t", t.sanitizedName)
+	cmd := exec.Command("zellij", "kill-session", "-t", t.sanitizedName)
 	if err := t.cmdExec.Run(cmd); err != nil {
-		errs = append(errs, fmt.Errorf("error killing tmux session: %w", err))
+		errs = append(errs, fmt.Errorf("error killing zellij session: %w", err))
 	}
 
 	if len(errs) == 0 {
@@ -428,13 +428,13 @@ func (t *TmuxSession) Close() error {
 }
 
 // SetDetachedSize set the width and height of the session while detached. This makes the
-// tmux output conform to the specified shape.
-func (t *TmuxSession) SetDetachedSize(width, height int) error {
+// zellij output conform to the specified shape.
+func (t *ZellijSession) SetDetachedSize(width, height int) error {
 	return t.updateWindowSize(width, height)
 }
 
 // updateWindowSize updates the window size of the PTY.
-func (t *TmuxSession) updateWindowSize(cols, rows int) error {
+func (t *ZellijSession) updateWindowSize(cols, rows int) error {
 	return pty.Setsize(t.ptmx, &pty.Winsize{
 		Rows: uint16(rows),
 		Cols: uint16(cols),
@@ -443,16 +443,16 @@ func (t *TmuxSession) updateWindowSize(cols, rows int) error {
 	})
 }
 
-func (t *TmuxSession) DoesSessionExist() bool {
+func (t *ZellijSession) DoesSessionExist() bool {
 	// Using "-t name" does a prefix match, which is wrong. `-t=` does an exact match.
-	existsCmd := exec.Command("tmux", "has-session", fmt.Sprintf("-t=%s", t.sanitizedName))
+	existsCmd := exec.Command("zellij", "has-session", fmt.Sprintf("-t=%s", t.sanitizedName))
 	return t.cmdExec.Run(existsCmd) == nil
 }
 
-// CapturePaneContent captures the content of the tmux pane
-func (t *TmuxSession) CapturePaneContent() (string, error) {
+// CapturePaneContent captures the content of the zellij pane
+func (t *ZellijSession) CapturePaneContent() (string, error) {
 	// Add -e flag to preserve escape sequences (ANSI color codes)
-	cmd := exec.Command("tmux", "capture-pane", "-p", "-e", "-J", "-t", t.sanitizedName)
+	cmd := exec.Command("zellij", "capture-pane", "-p", "-e", "-J", "-t", t.sanitizedName)
 	output, err := t.cmdExec.Output(cmd)
 	if err != nil {
 		return "", fmt.Errorf("error capturing pane content: %v", err)
@@ -462,20 +462,20 @@ func (t *TmuxSession) CapturePaneContent() (string, error) {
 
 // CapturePaneContentWithOptions captures the pane content with additional options
 // start and end specify the starting and ending line numbers (use "-" for the start/end of history)
-func (t *TmuxSession) CapturePaneContentWithOptions(start, end string) (string, error) {
+func (t *ZellijSession) CapturePaneContentWithOptions(start, end string) (string, error) {
 	// Add -e flag to preserve escape sequences (ANSI color codes)
-	cmd := exec.Command("tmux", "capture-pane", "-p", "-e", "-J", "-S", start, "-E", end, "-t", t.sanitizedName)
+	cmd := exec.Command("zellij", "capture-pane", "-p", "-e", "-J", "-S", start, "-E", end, "-t", t.sanitizedName)
 	output, err := t.cmdExec.Output(cmd)
 	if err != nil {
-		return "", fmt.Errorf("failed to capture tmux pane content with options: %v", err)
+		return "", fmt.Errorf("failed to capture zellij pane content with options: %v", err)
 	}
 	return string(output), nil
 }
 
-// CleanupSessions kills all tmux sessions that start with "session-"
+// CleanupSessions kills all zellij sessions that start with "session-"
 func CleanupSessions(cmdExec cmd.Executor) error {
 	// First try to list sessions
-	cmd := exec.Command("tmux", "ls")
+	cmd := exec.Command("zellij", "ls")
 	output, err := cmdExec.Output(cmd)
 
 	// If there's an error and it's because no server is running, that's fine
@@ -484,10 +484,10 @@ func CleanupSessions(cmdExec cmd.Executor) error {
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
 			return nil // No sessions to clean up
 		}
-		return fmt.Errorf("failed to list tmux sessions: %v", err)
+		return fmt.Errorf("failed to list zellij sessions: %v", err)
 	}
 
-	re := regexp.MustCompile(fmt.Sprintf(`%s.*:`, TmuxPrefix))
+	re := regexp.MustCompile(fmt.Sprintf(`%s.*:`, ZellijPrefix))
 	matches := re.FindAllString(string(output), -1)
 	for i, match := range matches {
 		matches[i] = match[:strings.Index(match, ":")]
@@ -495,8 +495,8 @@ func CleanupSessions(cmdExec cmd.Executor) error {
 
 	for _, match := range matches {
 		log.InfoLog.Printf("cleaning up session: %s", match)
-		if err := cmdExec.Run(exec.Command("tmux", "kill-session", "-t", match)); err != nil {
-			return fmt.Errorf("failed to kill tmux session %s: %v", match, err)
+		if err := cmdExec.Run(exec.Command("zellij", "kill-session", "-t", match)); err != nil {
+			return fmt.Errorf("failed to kill zellij session %s: %v", match, err)
 		}
 	}
 	return nil

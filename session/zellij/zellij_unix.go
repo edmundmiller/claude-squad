@@ -1,6 +1,6 @@
 //go:build !windows
 
-package tmux
+package zellij
 
 import (
 	"claude-squad/log"
@@ -13,7 +13,7 @@ import (
 )
 
 // monitorWindowSize monitors and handles window resize events while attached.
-func (t *TmuxSession) monitorWindowSize() {
+func (t *ZellijSession) monitorWindowSize() {
 	winchChan := make(chan os.Signal, 1)
 	signal.Notify(winchChan, syscall.SIGWINCH)
 	// Send initial SIGWINCH to trigger the first resize
