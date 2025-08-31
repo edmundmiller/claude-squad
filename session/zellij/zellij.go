@@ -472,7 +472,7 @@ func (t *ZellijSession) CapturePaneContentWithOptions(start, end string) (string
 	return string(output), nil
 }
 
-// CleanupSessions kills all zellij sessions that start with "session-"
+// CleanupSessions kills all zellij sessions that start with "claudesquad_"
 func CleanupSessions(cmdExec cmd.Executor) error {
 	// First try to list sessions
 	cmd := exec.Command("zellij", "ls")

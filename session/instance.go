@@ -359,8 +359,8 @@ func (i *Instance) Paused() bool {
 	return i.Status == Paused
 }
 
-// TmuxAlive returns true if the zellij session is alive. This is a sanity check before attaching.
-func (i *Instance) TmuxAlive() bool {
+// ZellijAlive returns true if the zellij session is alive. This is a sanity check before attaching.
+func (i *Instance) ZellijAlive() bool {
 	return i.zellijSession.DoesSessionExist()
 }
 

@@ -610,7 +610,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 			return m, nil
 		}
 		selected := m.list.GetSelectedInstance()
-		if selected == nil || selected.Paused() || !selected.TmuxAlive() {
+		if selected == nil || selected.Paused() || !selected.ZellijAlive() {
 			return m, nil
 		}
 		// Show help screen before attaching

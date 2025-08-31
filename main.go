@@ -95,7 +95,7 @@ var (
 			if err := zellij.CleanupSessions(cmd2.MakeExecutor()); err != nil {
 				return fmt.Errorf("failed to cleanup zellij sessions: %w", err)
 			}
-			fmt.Println("Tmux sessions have been cleaned up")
+			fmt.Println("Zellij sessions have been cleaned up")
 
 			if err := git.CleanupWorktrees(); err != nil {
 				return fmt.Errorf("failed to cleanup worktrees: %w", err)
