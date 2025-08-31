@@ -1,5 +1,5 @@
 layout {
   pane {
-    plugin location "file:./target/wasm32-wasip1/release/agent_fleet_tile.wasm"
+    plugin location="file:./target/wasm32-wasip1/release/agent_fleet_tile.wasm"
   }
 }
