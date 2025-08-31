@@ -1,7 +1,7 @@
 package git
 
 import (
-	"claude-squad/log"
+    "github.com/smtg-ai/agent-fleet/log"
 	"fmt"
 	"os"
 	"os/exec"

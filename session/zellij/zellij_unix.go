@@ -3,7 +3,7 @@
 package zellij
 
 import (
-	"claude-squad/log"
+    "github.com/smtg-ai/agent-fleet/log"
 	"os"
 	"os/signal"
 	"syscall"

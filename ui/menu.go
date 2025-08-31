@@ -1,10 +1,10 @@
 package ui
 
 import (
-	"claude-squad/keys"
+    "github.com/smtg-ai/agent-fleet/keys"
 	"strings"
 
-	"claude-squad/session"
+    "github.com/smtg-ai/agent-fleet/session"
 
 	"github.com/charmbracelet/lipgloss"
 )

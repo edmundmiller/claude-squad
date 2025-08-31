@@ -1,12 +1,12 @@
 package app
 
 import (
-	"claude-squad/config"
-	"claude-squad/keys"
-	"claude-squad/log"
-	"claude-squad/session"
-	"claude-squad/ui"
-	"claude-squad/ui/overlay"
+    "github.com/smtg-ai/agent-fleet/config"
+    "github.com/smtg-ai/agent-fleet/keys"
+    "github.com/smtg-ai/agent-fleet/log"
+    "github.com/smtg-ai/agent-fleet/session"
+    "github.com/smtg-ai/agent-fleet/ui"
+    "github.com/smtg-ai/agent-fleet/ui/overlay"
 	"context"
 	"fmt"
 	"os"
@@ -568,7 +568,7 @@ func (m *home) handleKeyPress(msg tea.KeyMsg) (mod tea.Model, cmd tea.Cmd) {
 		// Create the push action as a tea.Cmd
 		pushAction := func() tea.Msg {
 			// Default commit message with timestamp
-			commitMsg := fmt.Sprintf("[claudesquad] update from '%s' on %s", selected.Title, time.Now().Format(time.RFC822))
+            commitMsg := fmt.Sprintf("[agentfleet] update from '%s' on %s", selected.Title, time.Now().Format(time.RFC822))
 			worktree, err := selected.GetGitWorktree()
 			if err != nil {
 				return err

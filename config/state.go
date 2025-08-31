@@ -1,7 +1,7 @@
 package config
 
 import (
-	"claude-squad/log"
+    "github.com/smtg-ai/agent-fleet/log"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -55,7 +55,7 @@ func DefaultState() *State {
 
 // LoadState loads the state from disk. If it cannot be done, we return the default state.
 func LoadState() *State {
-	configDir, err := GetConfigDir()
+    configDir, err := GetConfigDir()
 	if err != nil {
 		log.ErrorLog.Printf("failed to get config directory: %v", err)
 		return DefaultState()
@@ -65,12 +65,26 @@ func LoadState() *State {
 	data, err := os.ReadFile(statePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// Create and save default state if file doesn't exist
-			defaultState := DefaultState()
-			if saveErr := SaveState(defaultState); saveErr != nil {
-				log.WarningLog.Printf("failed to save default state: %v", saveErr)
-			}
-			return defaultState
+            // Migration: check old path ~/.claude-squad
+            home, _ := os.UserHomeDir()
+            oldDir := filepath.Join(home, ".claude-squad")
+            oldStatePath := filepath.Join(oldDir, StateFileName)
+            if dataOld, errOld := os.ReadFile(oldStatePath); errOld == nil {
+                // Ensure new dir exists
+                _ = os.MkdirAll(configDir, 0755)
+                if writeErr := os.WriteFile(statePath, dataOld, 0644); writeErr == nil {
+                    log.InfoLog.Printf("migrated state from %s to %s", oldStatePath, statePath)
+                    data = dataOld
+                }
+            }
+            if data == nil {
+                // Create and save default state if file doesn't exist
+                defaultState := DefaultState()
+                if saveErr := SaveState(defaultState); saveErr != nil {
+                    log.WarningLog.Printf("failed to save default state: %v", saveErr)
+                }
+                return defaultState
+            }
 		}
 
 		log.WarningLog.Printf("failed to get state file: %v", err)

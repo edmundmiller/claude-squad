@@ -1,9 +1,9 @@
 package zellij
 
 import (
-	"bytes"
-	"claude-squad/cmd"
-	"claude-squad/log"
+    "bytes"
+    "github.com/smtg-ai/agent-fleet/cmd"
+    "github.com/smtg-ai/agent-fleet/log"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -57,11 +57,11 @@ type ZellijSession struct {
 	wg     *sync.WaitGroup
 }
 
-const ZellijPrefix = "claudesquad_"
+const ZellijPrefix = "agentfleet_"
 
 var whiteSpaceRegex = regexp.MustCompile(`\s+`)
 
-func toClaudeSquadZellijName(str string) string {
+func toZellijName(str string) string {
 	str = whiteSpaceRegex.ReplaceAllString(str, "")
 	str = strings.ReplaceAll(str, ".", "_") // zellij replaces all . with _
 	return fmt.Sprintf("%s%s", ZellijPrefix, str)
@@ -78,8 +78,8 @@ func NewZellijSessionWithDeps(name string, program string, ptyFactory PtyFactory
 }
 
 func newZellijSession(name string, program string, ptyFactory PtyFactory, cmdExec cmd.Executor) *ZellijSession {
-	return &ZellijSession{
-		sanitizedName: toClaudeSquadZellijName(name),
+    return &ZellijSession{
+        sanitizedName: toZellijName(name),
 		program:       program,
 		ptyFactory:    ptyFactory,
 		cmdExec:       cmdExec,
@@ -192,13 +192,24 @@ func (t *ZellijSession) Start(workDir string) error {
 
 // Restore attaches to an existing session and restores the window size
 func (t *ZellijSession) Restore() error {
-	ptmx, err := t.ptyFactory.Start(exec.Command("zellij", "attach-session", "-t", t.sanitizedName))
-	if err != nil {
-		return fmt.Errorf("error opening PTY: %w", err)
-	}
-	t.ptmx = ptmx
-	t.monitor = newStatusMonitor()
-	return nil
+    ptmx, err := t.ptyFactory.Start(exec.Command("zellij", "attach-session", "-t", t.sanitizedName))
+    if err != nil {
+        // Backwards-compat: try old prefix
+        if strings.HasPrefix(t.sanitizedName, ZellijPrefix) {
+            oldName := strings.Replace(t.sanitizedName, ZellijPrefix, "claudesquad_", 1)
+            ptmx2, err2 := t.ptyFactory.Start(exec.Command("zellij", "attach-session", "-t", oldName))
+            if err2 == nil {
+                t.sanitizedName = oldName
+                t.ptmx = ptmx2
+                t.monitor = newStatusMonitor()
+                return nil
+            }
+        }
+        return fmt.Errorf("error opening PTY: %w", err)
+    }
+    t.ptmx = ptmx
+    t.monitor = newStatusMonitor()
+    return nil
 }
 
 type statusMonitor struct {
@@ -495,7 +506,7 @@ func (t *ZellijSession) CapturePaneContentWithOptions(start, end string) (string
 	return string(output), nil
 }
 
-// CleanupSessions kills all zellij sessions that start with "claudesquad_"
+// CleanupSessions kills all zellij sessions that start with our prefixes
 func CleanupSessions(cmdExec cmd.Executor) error {
 	// First try to list sessions
 	cmd := exec.Command("zellij", "ls")
@@ -510,7 +521,7 @@ func CleanupSessions(cmdExec cmd.Executor) error {
 		return fmt.Errorf("failed to list zellij sessions: %v", err)
 	}
 
-	re := regexp.MustCompile(fmt.Sprintf(`%s.*:`, ZellijPrefix))
+    re := regexp.MustCompile(fmt.Sprintf(`(%s|%s).*:`, ZellijPrefix, "claudesquad_"))
 	matches := re.FindAllString(string(output), -1)
 	for i, match := range matches {
 		matches[i] = match[:strings.Index(match, ":")]

@@ -1,7 +1,7 @@
 package session
 
 import (
-	"claude-squad/config"
+    "github.com/smtg-ai/agent-fleet/config"
 	"encoding/json"
 	"fmt"
 	"time"

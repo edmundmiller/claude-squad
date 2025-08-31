@@ -1,8 +1,8 @@
 package ui
 
 import (
-	"claude-squad/log"
-	"claude-squad/session"
+    "github.com/smtg-ai/agent-fleet/log"
+    "github.com/smtg-ai/agent-fleet/session"
 	"github.com/charmbracelet/lipgloss"
 )
 

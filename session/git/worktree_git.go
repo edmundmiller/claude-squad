@@ -1,10 +1,10 @@
 package git
 
 import (
-	"claude-squad/log"
-	"fmt"
-	"os/exec"
-	"strings"
+    "fmt"
+    "github.com/smtg-ai/agent-fleet/log"
+    "os/exec"
+    "strings"
 )
 
 // runGitCommand executes a git command and returns any error

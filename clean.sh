@@ -1,3 +1,3 @@
 zellij kill-all-sessions --yes
 rm -rf worktree*
-rm -rf ~/.claude-squad
+rm -rf ~/.agent-fleet

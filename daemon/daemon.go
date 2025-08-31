@@ -1,9 +1,9 @@
 package daemon
 
 import (
-	"claude-squad/config"
-	"claude-squad/log"
-	"claude-squad/session"
+    "github.com/smtg-ai/agent-fleet/config"
+    "github.com/smtg-ai/agent-fleet/log"
+    "github.com/smtg-ai/agent-fleet/session"
 	"fmt"
 	"os"
 	"os/exec"

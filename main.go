@@ -1,14 +1,14 @@
 package main
 
 import (
-	"claude-squad/app"
-	cmd2 "claude-squad/cmd"
-	"claude-squad/config"
-	"claude-squad/daemon"
-	"claude-squad/log"
-	"claude-squad/session"
-	"claude-squad/session/git"
-	"claude-squad/session/zellij"
+    "github.com/smtg-ai/agent-fleet/app"
+    cmd2 "github.com/smtg-ai/agent-fleet/cmd"
+    "github.com/smtg-ai/agent-fleet/config"
+    "github.com/smtg-ai/agent-fleet/daemon"
+    "github.com/smtg-ai/agent-fleet/log"
+    "github.com/smtg-ai/agent-fleet/session"
+    "github.com/smtg-ai/agent-fleet/session/git"
+    "github.com/smtg-ai/agent-fleet/session/zellij"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -23,8 +23,8 @@ var (
 	autoYesFlag bool
 	daemonFlag  bool
 	rootCmd     = &cobra.Command{
-		Use:   "claude-squad",
-		Short: "Claude Squad - Manage multiple AI agents like Claude Code, Aider, Codex, and Amp.",
+        Use:   "agent-fleet",
+        Short: "Agent Fleet - Orchestrate multiple AI agents (Claude Code, Aider, Codex, Gemini)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
 			log.Initialize(daemonFlag)
@@ -43,8 +43,8 @@ var (
 				return fmt.Errorf("failed to get current directory: %w", err)
 			}
 
-			if !git.IsGitRepo(currentDir) {
-				return fmt.Errorf("error: claude-squad must be run from within a git repository")
+            if !git.IsGitRepo(currentDir) {
+                return fmt.Errorf("error: agent-fleet must be run from within a git repository")
 			}
 
 			cfg := config.LoadConfig()
@@ -133,14 +133,14 @@ var (
 		},
 	}
 
-	versionCmd = &cobra.Command{
-		Use:   "version",
-		Short: "Print the version number of claude-squad",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("claude-squad version %s\n", version)
-			fmt.Printf("https://github.com/smtg-ai/claude-squad/releases/tag/v%s\n", version)
-		},
-	}
+    versionCmd = &cobra.Command{
+        Use:   "version",
+        Short: "Print the version number of agent-fleet",
+        Run: func(cmd *cobra.Command, args []string) {
+            fmt.Printf("agent-fleet version %s\n", version)
+            fmt.Printf("https://github.com/smtg-ai/agent-fleet/releases/tag/v%s\n", version)
+        },
+    }
 )
 
 func init() {

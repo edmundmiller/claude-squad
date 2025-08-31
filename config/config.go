@@ -1,7 +1,7 @@
 package config
 
 import (
-	"claude-squad/log"
+    "github.com/smtg-ai/agent-fleet/log"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -23,7 +23,7 @@ func GetConfigDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get config home directory: %w", err)
 	}
-	return filepath.Join(homeDir, ".claude-squad"), nil
+    return filepath.Join(homeDir, ".agent-fleet"), nil
 }
 
 // Config represents the application configuration
@@ -110,7 +110,7 @@ func GetClaudeCommand() (string, error) {
 }
 
 func LoadConfig() *Config {
-	configDir, err := GetConfigDir()
+    configDir, err := GetConfigDir()
 	if err != nil {
 		log.ErrorLog.Printf("failed to get config directory: %v", err)
 		return DefaultConfig()
@@ -120,12 +120,26 @@ func LoadConfig() *Config {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// Create and save default config if file doesn't exist
-			defaultCfg := DefaultConfig()
-			if saveErr := saveConfig(defaultCfg); saveErr != nil {
-				log.WarningLog.Printf("failed to save default config: %v", saveErr)
-			}
-			return defaultCfg
+            // Migration: move from ~/.claude-squad/config.json if present
+            home, _ := os.UserHomeDir()
+            oldDir := filepath.Join(home, ".claude-squad")
+            oldConfigPath := filepath.Join(oldDir, ConfigFileName)
+            if dataOld, errOld := os.ReadFile(oldConfigPath); errOld == nil {
+                // Ensure new dir exists
+                _ = os.MkdirAll(configDir, 0755)
+                if writeErr := os.WriteFile(configPath, dataOld, 0644); writeErr == nil {
+                    log.InfoLog.Printf("migrated config from %s to %s", oldConfigPath, configPath)
+                    data = dataOld
+                }
+            }
+            if data == nil {
+                // Create and save default config if file doesn't exist
+                defaultCfg := DefaultConfig()
+                if saveErr := saveConfig(defaultCfg); saveErr != nil {
+                    log.WarningLog.Printf("failed to save default config: %v", saveErr)
+                }
+                return defaultCfg
+            }
 		}
 
 		log.WarningLog.Printf("failed to get config file: %v", err)

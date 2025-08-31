@@ -1,9 +1,9 @@
-# Claude Squad [![CI](https://github.com/smtg-ai/claude-squad/actions/workflows/build.yml/badge.svg)](https://github.com/smtg-ai/claude-squad/actions/workflows/build.yml) [![GitHub Release](https://img.shields.io/github/v/release/smtg-ai/claude-squad)](https://github.com/smtg-ai/claude-squad/releases/latest)
+# Agent Fleet [![CI](https://github.com/smtg-ai/agent-fleet/actions/workflows/build.yml/badge.svg)](https://github.com/smtg-ai/agent-fleet/actions/workflows/build.yml) [![GitHub Release](https://img.shields.io/github/v/release/smtg-ai/agent-fleet)](https://github.com/smtg-ai/agent-fleet/releases/latest)
 
-[Claude Squad](https://smtg-ai.github.io/claude-squad/) is a terminal app that manages multiple [Claude Code](https://github.com/anthropics/claude-code), [Codex](https://github.com/openai/codex), [Gemini](https://github.com/google-gemini/gemini-cli) (and other local agents including [Aider](https://github.com/Aider-AI/aider)) in separate workspaces, allowing you to work on multiple tasks simultaneously.
+[Agent Fleet](https://smtg-ai.github.io/agent-fleet/) is a terminal app that orchestrates multiple [Claude Code](https://github.com/anthropics/claude-code), [Codex](https://github.com/openai/codex), [Gemini](https://github.com/google-gemini/gemini-cli) (and other local agents including [Aider](https://github.com/Aider-AI/aider)) in separate workspaces, allowing you to work on multiple tasks simultaneously.
 
 
-![Claude Squad Screenshot](assets/screenshot.png)
+![Agent Fleet Screenshot](assets/screenshot.png)
 
 ### Highlights
 - Complete tasks in the background (including yolo / auto-accept mode!)
@@ -19,21 +19,21 @@ https://github.com/user-attachments/assets/aef18253-e58f-4525-9032-f5a3d66c975a
 
 ### Installation
 
-Both Homebrew and manual installation will install Claude Squad as `cs` on your system.
+Both Homebrew and manual installation will install Agent Fleet as `af` on your system.
 
 #### Homebrew
 
 ```bash
-brew install claude-squad
-ln -s "$(brew --prefix)/bin/claude-squad" "$(brew --prefix)/bin/cs"
+brew install agent-fleet
+ln -s "$(brew --prefix)/bin/agent-fleet" "$(brew --prefix)/bin/cs"
 ```
 
 #### Manual
 
-Claude Squad can also be installed by running the following command:
+Agent Fleet can also be installed by running the following command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/smtg-ai/claude-squad/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/smtg-ai/agent-fleet/main/install.sh | bash
 ```
 
 This puts the `cs` binary in `~/.local/bin`.
@@ -41,7 +41,7 @@ This puts the `cs` binary in `~/.local/bin`.
 To use a custom name for the binary:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/smtg-ai/claude-squad/main/install.sh | bash -s -- --name <your-binary-name>
+curl -fsSL https://raw.githubusercontent.com/smtg-ai/agent-fleet/main/install.sh | bash -s -- --name <your-binary-name>
 ```
 
 ### Prerequisites
@@ -53,38 +53,41 @@ curl -fsSL https://raw.githubusercontent.com/smtg-ai/claude-squad/main/install.s
 
 ```
 Usage:
-  cs [flags]
-  cs [command]
+  af [flags]
+  af [command]
 
 Available Commands:
   completion  Generate the autocompletion script for the specified shell
   debug       Print debug information like config paths
   help        Help about any command
   reset       Reset all stored instances
-  version     Print the version number of claude-squad
+  version     Print the version number of agent-fleet
 
 Flags:
   -y, --autoyes          [experimental] If enabled, all instances will automatically accept prompts for claude code & aider
-  -h, --help             help for claude-squad
+  -h, --help             help for agent-fleet
   -p, --program string   Program to run in new instances (e.g. 'aider --model ollama_chat/gemma3:1b')
 ```
 
-Run the application with:
+Run the application with `af` (or `cs` if you symlinked):
 
 ```bash
-cs
+af
 ```
 NOTE: The default program is `claude` and we recommend using the latest version.
 
 <br />
 
-<b>Using Claude Squad with other AI assistants:</b>
+<b>Using Agent Fleet with other AI assistants:</b>
 - For [Codex](https://github.com/openai/codex): Set your API key with `export OPENAI_API_KEY=<your_key>`
 - Launch with specific assistants:
-   - Codex: `cs -p "codex"`
-   - Aider: `cs -p "aider ..."`
-   - Gemini: `cs -p "gemini"`
-- Make this the default, by modifying the config file (locate with `cs debug`)
+   - Codex: `af -p "codex"`
+   - Aider: `af -p "aider ..."`
+   - Gemini: `af -p "gemini"`
+- Make this the default, by modifying the config file (locate with `af debug`)
+### Agents
+
+See [AGENTS.md](AGENTS.md) for supported agents, tips, and workflows.
 
 <br />
 
@@ -129,4 +132,4 @@ underlying program (ex. `claude`) to the latest version.
 
 ### Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=smtg-ai/claude-squad&type=Date)](https://www.star-history.com/#smtg-ai/claude-squad&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=smtg-ai/agent-fleet&type=Date)](https://www.star-history.com/#smtg-ai/agent-fleet&Date)

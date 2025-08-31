@@ -1,11 +1,11 @@
 package app
 
 import (
-	"claude-squad/config"
-	"claude-squad/log"
-	"claude-squad/session"
-	"claude-squad/ui"
-	"claude-squad/ui/overlay"
+    "github.com/smtg-ai/agent-fleet/config"
+    "github.com/smtg-ai/agent-fleet/log"
+    "github.com/smtg-ai/agent-fleet/session"
+    "github.com/smtg-ai/agent-fleet/ui"
+    "github.com/smtg-ai/agent-fleet/ui/overlay"
 	"context"
 	"fmt"
 	"os"

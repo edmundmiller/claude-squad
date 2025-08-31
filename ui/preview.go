@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"claude-squad/session"
+    "github.com/smtg-ai/agent-fleet/session"
 	"fmt"
 	"strings"
 
