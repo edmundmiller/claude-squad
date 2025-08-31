@@ -136,10 +136,9 @@ impl State {
             }
             _ => ("bash".to_string(), vec![]),
         };
-        open_command_pane_near_plugin(
-            CommandToRun::new_with_args(cmd_path, cmd_args),
-            context,
-        );
+        let mut cmd = CommandToRun::new_with_args(cmd_path, cmd_args);
+        cmd.cwd = Some(std::path::PathBuf::from(self.form.worktree_path.clone()));
+        open_command_pane_near_plugin(cmd, context);
 
         self.form.status = format!("Launched in {} on {}", self.form.worktree_path, self.form.branch);
     }
