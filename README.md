@@ -48,6 +48,24 @@ curl -fsSL https://raw.githubusercontent.com/smtg-ai/agent-fleet/main/install.sh
 
 - [zellij](https://zellij.dev/documentation/installation.html)
 - [gh](https://cli.github.com/)
+- Rust toolchain + `wasm32-wasip1` target
+
+### Zellij plugin (experimental)
+
+A Rust/WASM Zellij tile plugin lives at `plugins/zellij/agent-fleet-tile`. It can create a git worktree from the current repo and launch an Agent Fleet-compatible program in that worktree.
+
+Build it:
+
+```bash
+cd plugins/zellij/agent-fleet-tile
+./scripts/build.sh
+```
+
+Run it via layout:
+
+```bash
+zellij --layout layouts/agent-fleet.kdl
+```
 
 ### Usage
 
