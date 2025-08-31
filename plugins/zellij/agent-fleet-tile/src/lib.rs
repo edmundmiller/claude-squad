@@ -1,7 +1,6 @@
 use zellij_tile::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::process::exit;
 
 register_plugin!(State);
 
@@ -22,10 +21,11 @@ pub struct State {
 impl Default for State {
     fn default() -> Self {
         let username = std::env::var("USER").unwrap_or_else(|_| "user".into());
+        let short_id = std::process::id();
         State {
             form: FormState {
                 program: "claude".into(),
-                branch: format!("{}/zellij-plugin", username),
+                branch: format!("{}/af-{}", username, short_id),
                 worktree_path: String::new(),
                 base: "origin/main".into(),
                 create_worktree: true,
@@ -62,7 +62,6 @@ impl ZellijPlugin for State {
 
     fn render(&mut self, rows: usize, _cols: usize) {
         let title = "Agent Fleet";
-        let options = ["claude", "aider", "gemini", "custom"];
 
         let mut lines: Vec<String> = vec![];
         lines.push(format!("=== {} ===", title));
