@@ -16,6 +16,7 @@ struct FormState {
 
 pub struct State {
     form: FormState,
+    repo_root: Option<String>,
 }
 
 impl Default for State {
@@ -31,6 +32,7 @@ impl Default for State {
                 create_worktree: true,
                 status: String::new(),
             },
+            repo_root: None,
         }
     }
 }
@@ -42,7 +44,7 @@ impl ZellijPlugin for State {
             PermissionType::RunCommands,
             PermissionType::OpenTerminalsOrPlugins,
         ]);
-        subscribe(&[EventType::Key]);
+        subscribe(&[EventType::Key, EventType::RunCommandResult]);
     }
 
     fn update(&mut self, event: Event) -> bool {
@@ -55,6 +57,73 @@ impl ZellijPlugin for State {
                     self.launch();
                 }
                 true
+            }
+            Event::RunCommandResult(exit_code, stdout, stderr, context) => {
+                let stage = context.get("stage").cloned().unwrap_or_default();
+                match stage.as_str() {
+                    "detect_root" => {
+                        let root = if exit_code == Some(0) {
+                            String::from_utf8(stdout.clone()).unwrap_or_default().trim().to_string()
+                        } else {
+                            String::from(".")
+                        };
+                        self.repo_root = Some(root.clone());
+
+                        // now create worktree
+                        let branch = self.form.branch.clone();
+                        let worktree_path = self.form.worktree_path.clone();
+                        let base = self.form.base.clone();
+                        let mut ctx = BTreeMap::new();
+                        ctx.insert("stage".into(), "create_worktree".into());
+                        run_command_with_env_variables_and_cwd(
+                            &[
+                                "git",
+                                "worktree",
+                                "add",
+                                "-B",
+                                &branch,
+                                &worktree_path,
+                                &base,
+                            ],
+                            BTreeMap::new(),
+                            std::path::PathBuf::from(root),
+                            ctx,
+                        );
+                        true
+                    }
+                    "create_worktree" => {
+                        if exit_code == Some(0) {
+                            // open panes now that worktree exists
+                            open_terminal_near_plugin(&self.form.worktree_path);
+                            let mut ctx = BTreeMap::new();
+                            ctx.insert("purpose".into(), "launch_agent".into());
+                            let program_cmd = if self.form.program == "custom" || self.form.program.is_empty() {
+                                "bash".to_string()
+                            } else {
+                                self.form.program.clone()
+                            };
+                            let (cmd_path, cmd_args): (String, Vec<String>) = match shlex::split(&program_cmd) {
+                                Some(mut parts) if !parts.is_empty() => {
+                                    let path = parts.remove(0);
+                                    (path, parts)
+                                }
+                                _ => ("bash".to_string(), vec![]),
+                            };
+                            let mut cmd = CommandToRun::new_with_args(cmd_path, cmd_args);
+                            cmd.cwd = Some(std::path::PathBuf::from(self.form.worktree_path.clone()));
+                            open_command_pane_near_plugin(cmd, ctx);
+                            self.form.status = format!(
+                                "Launched in {} on {}",
+                                self.form.worktree_path, self.form.branch
+                            );
+                        } else {
+                            let err = String::from_utf8(stderr.clone()).unwrap_or_default();
+                            self.form.status = format!("Failed to create worktree: {}", err.trim());
+                        }
+                        true
+                    }
+                    _ => false,
+                }
             }
             _ => false,
         }
@@ -114,31 +183,32 @@ impl State {
             self.form.program.clone()
         };
 
-        // open a pane to create the worktree (optional)
+        // create the worktree first, then launch upon success
         if self.form.create_worktree {
-            let mut context = BTreeMap::new();
-            context.insert("purpose".into(), "create_worktree".into());
-            open_command_pane_near_plugin(
-                CommandToRun::new_with_args("bash", vec!["-lc", &worktree_cmd]),
-                context,
+            let mut ctx = BTreeMap::new();
+            ctx.insert("stage".into(), "detect_root".into());
+            run_command_with_env_variables_and_cwd(
+                &["git", "rev-parse", "--show-toplevel"],
+                BTreeMap::new(),
+                std::path::PathBuf::from("."),
+                ctx,
             );
+        } else {
+            // no worktree creation, just launch in current folder
+            open_terminal_near_plugin(".");
+            let mut ctx = BTreeMap::new();
+            ctx.insert("purpose".into(), "launch_agent".into());
+            let (cmd_path, cmd_args): (String, Vec<String>) = match shlex::split(&program_cmd) {
+                Some(mut parts) if !parts.is_empty() => {
+                    let path = parts.remove(0);
+                    (path, parts)
+                }
+                _ => ("bash".to_string(), vec![]),
+            };
+            let mut cmd = CommandToRun::new_with_args(cmd_path, cmd_args);
+            cmd.cwd = Some(std::path::PathBuf::from("."));
+            open_command_pane_near_plugin(cmd, ctx);
+            self.form.status = "Launched agent without creating worktree".into();
         }
-
-        // open a pane in the new worktree to launch the program
-        open_terminal_near_plugin(&self.form.worktree_path);
-        let mut context = BTreeMap::new();
-        context.insert("purpose".into(), "launch_agent".into());
-        let (cmd_path, cmd_args): (String, Vec<String>) = match shlex::split(&program_cmd) {
-            Some(mut parts) if !parts.is_empty() => {
-                let path = parts.remove(0);
-                (path, parts)
-            }
-            _ => ("bash".to_string(), vec![]),
-        };
-        let mut cmd = CommandToRun::new_with_args(cmd_path, cmd_args);
-        cmd.cwd = Some(std::path::PathBuf::from(self.form.worktree_path.clone()));
-        open_command_pane_near_plugin(cmd, context);
-
-        self.form.status = format!("Launched in {} on {}", self.form.worktree_path, self.form.branch);
     }
 }
