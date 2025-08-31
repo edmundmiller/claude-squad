@@ -42,18 +42,14 @@ impl ZellijPlugin for State {
             PermissionType::RunCommands,
             PermissionType::OpenTerminalsOrPlugins,
         ]);
-        subscribe(&[Event::Key(KeyWithModifier {
-            bare_key: BareKey::Char(' '),
-            key_modifiers: Default::default(),
-        })
-        .into()]);
+        subscribe(&[EventType::Key]);
     }
 
     fn update(&mut self, event: Event) -> bool {
         match event {
             Event::Key(key_with_mod) => {
                 if key_with_mod.bare_key == BareKey::Char('q') {
-                    exit(0);
+                    close_self();
                 }
                 if key_with_mod.bare_key == BareKey::Enter {
                     self.launch();
@@ -121,13 +117,10 @@ impl State {
 
         // open a pane to create the worktree (optional)
         if self.form.create_worktree {
-            let cmd = format!("bash -lc {}", shlex::quote(&format!("{}", worktree_cmd)));
             let mut context = BTreeMap::new();
             context.insert("purpose".into(), "create_worktree".into());
-            run_command_with_env_variables_and_cwd(
-                &["bash", "-lc", &cmd],
-                BTreeMap::new(),
-                std::path::PathBuf::from("."),
+            open_command_pane_near_plugin(
+                CommandToRun::new_with_args("bash", vec!["-lc", &worktree_cmd]),
                 context,
             );
         }
@@ -136,12 +129,18 @@ impl State {
         open_terminal_near_plugin(&self.form.worktree_path);
         let mut context = BTreeMap::new();
         context.insert("purpose".into(), "launch_agent".into());
+        let (cmd_path, cmd_args): (String, Vec<String>) = match shlex::split(&program_cmd) {
+            Some(mut parts) if !parts.is_empty() => {
+                let path = parts.remove(0);
+                (path, parts)
+            }
+            _ => ("bash".to_string(), vec![]),
+        };
         open_command_pane_near_plugin(
-            CommandToRun::new_with_args(program_cmd.clone(), vec![] as Vec<&str>),
+            CommandToRun::new_with_args(cmd_path, cmd_args),
             context,
         );
 
         self.form.status = format!("Launched in {} on {}", self.form.worktree_path, self.form.branch);
-        set_timeout(1.5);
     }
 }
