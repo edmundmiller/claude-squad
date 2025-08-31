@@ -109,19 +109,22 @@ func (t *ZellijSession) Start(workDir string) error {
 		return fmt.Errorf("error starting zellij session: %w", err)
 	}
 
-	// We need to close the ptmx, but we shouldn't close it before the command above finishes.
-	// So, we poll for completion before closing.
+	// Poll for session existence with exponential backoff
 	timeout := time.After(2 * time.Second)
+	sleepDuration := 5 * time.Millisecond
 	for !t.DoesSessionExist() {
 		select {
 		case <-timeout:
-			// Cleanup on window size update failure
 			if cleanupErr := t.Close(); cleanupErr != nil {
 				err = fmt.Errorf("%v (cleanup error: %v)", err, cleanupErr)
 			}
 			return fmt.Errorf("timed out waiting for zellij session %s: %v", t.sanitizedName, err)
 		default:
-			time.Sleep(time.Millisecond * 10)
+			time.Sleep(sleepDuration)
+			// Exponential backoff up to 50ms max
+			if sleepDuration < 50*time.Millisecond {
+				sleepDuration *= 2
+			}
 		}
 	}
 	ptmx.Close()
@@ -132,6 +135,12 @@ func (t *ZellijSession) Start(workDir string) error {
 		log.InfoLog.Printf("Warning: failed to set history-limit for session %s: %v", t.sanitizedName, err)
 	}
 
+	// Enable mouse scrolling for the session
+	mouseCmd := exec.Command("tmux", "set-option", "-t", t.sanitizedName, "mouse", "on")
+	if err := t.cmdExec.Run(mouseCmd); err != nil {
+		log.InfoLog.Printf("Warning: failed to enable mouse scrolling for session %s: %v", t.sanitizedName, err)
+	}
+
 	err = t.Restore()
 	if err != nil {
 		if cleanupErr := t.Close(); cleanupErr != nil {
@@ -140,27 +149,41 @@ func (t *ZellijSession) Start(workDir string) error {
 		return fmt.Errorf("error restoring zellij session: %w", err)
 	}
 
-	if t.program == ProgramClaude || strings.HasPrefix(t.program, ProgramAider) || strings.HasPrefix(t.program, ProgramGemini) {
+	if strings.HasSuffix(t.program, ProgramClaude) || strings.HasSuffix(t.program, ProgramAider) || strings.HasSuffix(t.program, ProgramGemini) {
 		searchString := "Do you trust the files in this folder?"
 		tapFunc := t.TapEnter
-		iterations := 5
-		if t.program != ProgramClaude {
+		maxWaitTime := 30 * time.Second // Much longer timeout for slower systems
+		if !strings.HasSuffix(t.program, ProgramClaude) {
 			searchString = "Open documentation url for more info"
 			tapFunc = t.TapDAndEnter
-			iterations = 10 // Aider takes longer to start :/
+			maxWaitTime = 45 * time.Second // Aider/Gemini take longer to start
 		}
+
 		// Deal with "do you trust the files" screen by sending an enter keystroke.
-		for i := 0; i < iterations; i++ {
-			time.Sleep(200 * time.Millisecond)
+		// Use exponential backoff with longer timeout for reliability on slow systems
+		startTime := time.Now()
+		sleepDuration := 100 * time.Millisecond
+		attempt := 0
+
+		for time.Since(startTime) < maxWaitTime {
+			attempt++
+			time.Sleep(sleepDuration)
 			content, err := t.CapturePaneContent()
 			if err != nil {
-				log.ErrorLog.Printf("could not check 'do you trust the files screen': %v", err)
-			}
-			if strings.Contains(content, searchString) {
-				if err := tapFunc(); err != nil {
-					log.ErrorLog.Printf("could not tap enter on trust screen: %v", err)
+				// Session might not be ready yet, continue waiting
+			} else {
+				if strings.Contains(content, searchString) {
+					if err := tapFunc(); err != nil {
+						log.ErrorLog.Printf("could not tap enter on trust screen: %v", err)
+					}
+					break
 				}
-				break
+			}
+
+			// Exponential backoff with cap at 1 second
+			sleepDuration = time.Duration(float64(sleepDuration) * 1.2)
+			if sleepDuration > time.Second {
+				sleepDuration = time.Second
 			}
 		}
 	}
