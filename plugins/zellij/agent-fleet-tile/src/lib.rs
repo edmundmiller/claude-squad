@@ -17,6 +17,7 @@ struct FormState {
 pub struct State {
     form: FormState,
     repo_root: Option<String>,
+    log_path: Option<String>,
 }
 
 impl Default for State {
@@ -33,6 +34,7 @@ impl Default for State {
                 status: String::new(),
             },
             repo_root: None,
+            log_path: None,
         }
     }
 }
@@ -43,6 +45,7 @@ impl ZellijPlugin for State {
             PermissionType::ChangeApplicationState,
             PermissionType::RunCommands,
             PermissionType::OpenTerminalsOrPlugins,
+            PermissionType::OpenFiles,
         ]);
         subscribe(&[EventType::Key, EventType::RunCommandResult]);
     }
@@ -52,6 +55,12 @@ impl ZellijPlugin for State {
             Event::Key(key_with_mod) => {
                 if key_with_mod.bare_key == BareKey::Char('q') {
                     close_self();
+                }
+                if key_with_mod.bare_key == BareKey::Char('l') {
+                    if let Some(log_path) = &self.log_path {
+                        open_file_near_plugin(FileToOpen::new(log_path), BTreeMap::new());
+                    }
+                    return true;
                 }
                 if key_with_mod.bare_key == BareKey::Enter {
                     self.launch();
@@ -68,6 +77,7 @@ impl ZellijPlugin for State {
                             String::from(".")
                         };
                         self.repo_root = Some(root.clone());
+                        self.log_path = Some(format!("{}/af_zellij_plugin.log", root));
 
                         // now create worktree
                         let branch = self.form.branch.clone();
@@ -75,16 +85,16 @@ impl ZellijPlugin for State {
                         let base = self.form.base.clone();
                         let mut ctx = BTreeMap::new();
                         ctx.insert("stage".into(), "create_worktree".into());
+                        let log_target = self
+                            .log_path
+                            .clone()
+                            .unwrap_or_else(|| format!("{}/af_zellij_plugin.log", root));
+                        let cmd_str = format!(
+                            "git worktree add -B {} '{}' {} 2>&1 | tee -a '{}'",
+                            branch, worktree_path, base, log_target
+                        );
                         run_command_with_env_variables_and_cwd(
-                            &[
-                                "git",
-                                "worktree",
-                                "add",
-                                "-B",
-                                &branch,
-                                &worktree_path,
-                                &base,
-                            ],
+                            &["bash", "-lc", &cmd_str],
                             BTreeMap::new(),
                             std::path::PathBuf::from(root),
                             ctx,
